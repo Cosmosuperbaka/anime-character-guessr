@@ -14,7 +14,7 @@ async function waitUntil(predicate) {
     }
 }
 
-async function createScoringRoom(t, { syncMode, nonstopMode = true, playerOptions = [{}, {}, {}] }) {
+async function createScoringRoom(t, { syncMode, nonstopMode = true, playerOptions = [{}, {}, {}], settingsOverride = {} }) {
     const rooms = new Map();
     const httpServer = http.createServer();
     const io = new Server(httpServer, { path: '/api/ws' });
@@ -51,7 +51,7 @@ async function createScoringRoom(t, { syncMode, nonstopMode = true, playerOption
     }
     await waitUntil(() => rooms.get(roomId).players.slice(1).every(player => player.ready));
 
-    const settings = { maxAttempts: 10, syncMode, nonstopMode, timeLimit: 0, globalPick: false, tagBan: false };
+    const settings = { maxAttempts: 10, syncMode, nonstopMode, timeLimit: 0, globalPick: false, tagBan: false, ...settingsOverride };
     const answerId = 900;
     assert.equal((await command(host, 'gameStart', { settings, character: { id: answerId } })).ok, true);
     return {
@@ -128,4 +128,29 @@ test('standard sync team victory rewards only the accepted correct guesser', { t
     assert.equal(team.members[1].breakdown.bigWin, 0, 'a teammate avatar must not grant the guesser a bonus');
     assert.equal(team.members[1].breakdown.quickGuess, 2, 'team attempts remain shared');
     assert.deepEqual(room.players.slice(1).map(player => player.score), [0, 4, 4]);
+});
+
+test('accepted guesses register tags before sync advances and rejected guesses cannot register tags', { timeout: 10000 }, async t => {
+    const { room, players, command } = await createScoringRoom(t, {
+        syncMode: true, nonstopMode: false, settingsOverride: { globalPick: true, tagBan: true }
+    });
+    const submit = (player, id, tags) => command(player, 'playerGuess', {
+        guessResult: { guessData: { id, name: `character-${id}` } }, sharedMetaTags: tags
+    });
+    assert.equal((await submit(players[0], 800, ['首位标签'])).tagBanApplied, true);
+    const rejected = await submit(players[0], 801, ['拒绝的标签']);
+    assert.equal(rejected.ok, false, 'a second guess in the same sync round must fail');
+    assert.equal(room.currentGame.tagBanStatePending.some(entry => entry.tag === '拒绝的标签'), false);
+    assert.equal((await submit(players[1], 802, [])).tagBanApplied, true);
+    assert.equal((await submit(players[2], 803, ['最后标签'])).tagBanApplied, true);
+    assert.equal(room.currentGame.syncRound, 2);
+    assert.deepEqual(room.currentGame.tagBanState.map(entry => entry.tag), ['首位标签', '最后标签']);
+    assert.deepEqual(room.currentGame.tagBanStatePending, []);
+    assert.equal(room.currentGame.tagBanState.every(entry => players.every(player => entry.revealer.includes(player.id))), true);
+
+    const duplicate = await submit(players[1], 800, ['重复拒绝标签']);
+    assert.equal(duplicate.ok, false);
+    assert.equal(room.currentGame.tagBanStatePending.length, 0);
+    players[0].emit('tagBanSharedMetaTags', { roomId: 'scoring-room', tags: ['旧客户端标签'] });
+    await waitUntil(() => room.currentGame.tagBanStatePending.some(entry => entry.tag === '旧客户端标签'));
 });
