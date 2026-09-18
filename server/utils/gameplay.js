@@ -258,7 +258,7 @@ function getSyncAndNonstopState(room, emitCallback) {
         
         if (emitCallback) {
             emitCallback('nonstopProgress', {
-                winners: (room.currentGame?.nonstopWinners || []).map((w, idx) => ({ username: w.username, rank: idx + 1, score: w.score })),
+                winners: (room.currentGame?.nonstopWinners || []).map(w => ({ username: w.username, rank: w.rank, score: w.score })),
                 remainingCount: remainingPlayers.length,
                 totalCount: activePlayers.length
             });
@@ -1080,7 +1080,7 @@ function buildScoreChanges({ players, actualWinner, actualWinners, winnerScoreRe
         const winners = nonstopWinners || [];
         const winnerIds = new Set(winners.map(w => w.id));
         
-        winners.forEach((w, idx) => {
+        winners.forEach(w => {
             const winnerPlayer = players.find(p => p.id === w.id);
             const isBigWin = winnerPlayer && winnerPlayer.guesses.includes('👑');
 
@@ -1092,7 +1092,7 @@ function buildScoreChanges({ players, actualWinner, actualWinners, winnerScoreRe
             scoreChanges[w.id] = {
                 score: w.score,
                 breakdown: {
-                    rank: idx + 1,
+                    rank: w.rank,
                     base: baseScore,
                     ...(bigWinBonus ? { bigWin: bigWinBonus } : {}),
                     ...(quickGuessBonus ? { quickGuess: quickGuessBonus } : {})

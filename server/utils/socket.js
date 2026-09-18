@@ -327,8 +327,10 @@ function setupSocket(io, rooms) {
 
             const initialTotalPlayers = room.currentGame?.nonstopTotalPlayers || 1;
             const winnersCount = room.currentGame?.nonstopWinners?.length || 0;
-            const winnerRank = winnersCount + 1;
-            const rankScore = Math.max(1, initialTotalPlayers - winnersCount);
+            const winnerRank = room.currentGame.settings.syncMode
+                ? room.currentGame.syncRoundStartRank
+                : winnersCount + 1;
+            const rankScore = Math.max(1, initialTotalPlayers - winnerRank + 1);
             const totalRounds = room.currentGame?.settings?.maxAttempts || 10;
             const scoreResult = calculateWinnerScore({ guesses: player.guesses, baseScore: rankScore, totalRounds });
             const score = scoreResult.totalScore;
@@ -338,6 +340,7 @@ function setupSocket(io, rooms) {
                 username: player.username,
                 isBigWin,
                 team: player.team,
+                rank: winnerRank,
                 score,
                 bonuses: scoreResult.bonuses
             });
