@@ -91,3 +91,41 @@ for (const syncMode of [true, false]) {
         assert.deepEqual(progress.at(-1).winners.map(winner => winner.rank), expectedRanks);
     });
 }
+
+test('standard sync winners retain their own avatar and quick-guess bonuses', { timeout: 10000 }, async t => {
+    const { room, host, players, guess, answerId } = await createScoringRoom(t, {
+        syncMode: true, nonstopMode: false, playerOptions: [{}, { avatarId: 900 }, {}]
+    });
+    for (const player of players) assert.equal((await guess(player, answerId + 1)).ok, true);
+    assert.equal(room.currentGame.syncRound, 2);
+
+    const ended = once(host, 'gameEnded');
+    for (const player of players) assert.equal((await guess(player)).ok, true);
+    const [result] = await ended;
+    assert.deepEqual(result.scoreDetails.map(detail => detail.score), [4, 14, 4]);
+    assert.deepEqual(result.scoreDetails.map(detail => detail.breakdown.bigWin), [0, 12, 0]);
+    assert.deepEqual(result.scoreDetails.map(detail => detail.breakdown.quickGuess), [2, 0, 2]);
+    assert.deepEqual(room.players.slice(1).map(player => player.score), [4, 14, 4]);
+});
+
+test('standard sync team victory rewards only the accepted correct guesser', { timeout: 10000 }, async t => {
+    const { room, host, players, guess, answerId } = await createScoringRoom(t, {
+        syncMode: true, nonstopMode: false,
+        playerOptions: [{ team: '1', avatarId: 900 }, { team: '1' }, {}]
+    });
+    assert.equal((await guess(players[0], answerId + 1)).ok, true);
+    assert.equal((await guess(players[2], answerId + 1)).ok, true);
+    assert.equal(room.currentGame.syncRound, 2);
+
+    const ended = once(host, 'gameEnded');
+    assert.equal((await guess(players[1])).ok, true);
+    assert.equal((await guess(players[2])).ok, true);
+    const [result] = await ended;
+    const team = result.scoreDetails.find(detail => detail.type === 'team');
+    assert.equal(team.teamScore, 4);
+    assert.deepEqual(team.members.map(member => member.score), [0, 4]);
+    assert.equal(team.members[0].result, 'teamwin');
+    assert.equal(team.members[1].breakdown.bigWin, 0, 'a teammate avatar must not grant the guesser a bonus');
+    assert.equal(team.members[1].breakdown.quickGuess, 2, 'team attempts remain shared');
+    assert.deepEqual(room.players.slice(1).map(player => player.score), [0, 4, 4]);
+});
