@@ -630,13 +630,15 @@ const Multiplayer = () => {
       decryptedCharacter.rawTags = new Map(decryptedCharacter.rawTags);
       setAnswerCharacter(decryptedCharacter);
       answerCharacterRef.current = decryptedCharacter;
-      setGameSettings(settings);
+      if (settings) {
+        setGameSettings(prev => ({ ...prev, ...settings }));
+      }
       
       // Calculate guesses left based on current player's guess history
       const currentPlayer = players?.find(p => p.id === newSocket.id);
       const initialMarks = String(currentPlayer?.guesses || '').match(/(?:⏱️?|💡|✔|❌)/g);
       const guessesMade = initialMarks ? initialMarks.length : 0;
-      const remainingGuesses = Math.max(0, (settings?.maxAttempts ?? 10) - guessesMade);
+      const remainingGuesses = Math.max(0, ((settings?.maxAttempts ?? gameSettings?.maxAttempts) ?? 10) - guessesMade);
       setGuessesLeft(remainingGuesses);
       
       // 检查当前玩家是否为旁观者
@@ -1875,14 +1877,14 @@ const Multiplayer = () => {
                     onCharacterSelect={handleCharacterSelect}
                     isGuessing={isGuessing || waitingForSync}
                     gameEnd={gameEnd || isObserver}
-                    subjectSearch={gameSettings.subjectSearch}
+                    subjectSearch={gameSettings?.subjectSearch ?? true}
                     gameSettings={gameSettings}
                     finishInit={isGameStarted}
                     locale={locale}
                     placeholder={guesses.length === 0 ? (locale === 'en' ? 'Try guessing any character to start...' : '随便猜一个角色开始吧...') : undefined}
                   />
                   {/* 同步模式等待提示 */}
-                  {gameSettings.syncMode && (
+                  {gameSettings?.syncMode && (
                     <div className="sync-waiting-banner">
                       {(() => {
                         const filtered = getFilteredSyncStatus();
@@ -1902,7 +1904,7 @@ const Multiplayer = () => {
                     </div>
                   )}
                   {/* 血战模式进度显示 */}
-                  {gameSettings.nonstopMode && (
+                  {gameSettings?.nonstopMode && (
                     <div className="nonstop-progress-banner">
                       <span>🔥 {text.nonstopMode} - {text.remainingPlayers} {nonstopProgress?.remainingCount ?? players.filter(p => !p.isAnswerSetter && p.team !== '0' && !p.disconnected).length}/{nonstopProgress?.totalCount ?? players.filter(p => !p.isAnswerSetter && p.team !== '0' && !p.disconnected).length}</span>
                           {nonstopProgress?.winners && nonstopProgress.winners.length > 0 && (
@@ -1916,7 +1918,7 @@ const Multiplayer = () => {
                       )}
                     </div>
                   )}
-                  {gameSettings.timeLimit && !gameEnd && !waitingForSync && (
+                  {gameSettings?.timeLimit && !gameEnd && !waitingForSync && (
                     <Timer
                       timeLimit={gameSettings.timeLimit}
                       onTimeUp={handleTimeUp}
@@ -1971,7 +1973,7 @@ const Multiplayer = () => {
                     </div>
                   )}
                   {/* 血战模式进度显示（出题人视角）  */}
-                  {gameSettings.nonstopMode && (
+                  {gameSettings?.nonstopMode && (
                     <div className="nonstop-progress-banner">
                       <span>🔥 {text.nonstopMode} - {text.remainingPlayers} {nonstopProgress?.remainingCount ?? players.filter(p => !p.isAnswerSetter && p.team !== '0' && !p.disconnected).length}/{nonstopProgress?.totalCount ?? players.filter(p => !p.isAnswerSetter && p.team !== '0' && !p.disconnected).length}</span>
                       {nonstopProgress?.winners && nonstopProgress.winners.length > 0 && (
@@ -1986,7 +1988,7 @@ const Multiplayer = () => {
                     </div>
                   )}
                   {/* 同步模式进度显示（出题人/旁观者视角） */}
-                  {gameSettings.syncMode && (
+                  {gameSettings?.syncMode && (
                     <div className="sync-waiting-banner">
                       {(() => {
                         const filtered = getFilteredSyncStatus();
