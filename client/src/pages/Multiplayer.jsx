@@ -26,12 +26,8 @@ const SOCKET_URL = import.meta.env.VITE_SERVER_URL || 'http://localhost:3000';
 
 const getStoredAvatarPayload = () => {
   try {
-    let id = sessionStorage.getItem('avatarId');
-    let img = sessionStorage.getItem('avatarImage');
-    if (id === null || id === undefined) {
-      id = localStorage.getItem('avatarId');
-      img = localStorage.getItem('avatarImage');
-    }
+    const id = sessionStorage.getItem('avatarId');
+    const img = sessionStorage.getItem('avatarImage');
     if (id !== null && id !== undefined && id !== '0' && id !== 0) {
       return { avatarId: id, avatarImage: img };
     }
